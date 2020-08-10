@@ -28,22 +28,10 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 
 	ginkgo.Describe("Granular Checks: Pods", func() {
 
-		// Try to hit all endpoints through a test container, retry 5 times,
-		// expect exactly one unique hostname. Each of these endpoints reports
-		// its own hostname.
-		/*
-			Release: v1.9, v1.18
-			Testname: Networking, intra pod http
-			Description: Create a hostexec pod that is capable of curl to netcat commands. Create a test Pod that will act as a webserver front end exposing ports 8080 for tcp and 8081 for udp. The netserver service proxies are created on specified number of nodes.
-			The kubectl exec on the webserver container MUST reach a http port on the each of service proxy endpoints in the cluster and the request MUST be successful. Container will execute curl command to reach the service port within specified max retry limit and MUST result in reporting unique hostnames.
-		*/
-		framework.ConformanceIt("should function for intra-pod communication: http [NodeConformance]", func() {
-			config := e2enetwork.NewCoreNetworkingTestConfig(f, false)
-
-			// Extra debugging info since this is the most common diagnostic for failing clusters, and is a Conformance test.
+		checkNodeConnectivity := func(config *e2enetwork.NetworkingTestConfig, protocol string, port int) {
 			errors := []error{}
 			for _, endpointPod := range config.EndpointPods {
-				if err := config.DialFromTestContainer("http", endpointPod.Status.PodIP, e2enetwork.EndpointHTTPPort, config.MaxTries, 0, sets.NewString(endpointPod.Name)); err != nil {
+				if err := config.DialFromTestContainer(protocol, endpointPod.Status.PodIP, port, config.MaxTries, 0, sets.NewString(endpointPod.Name)); err != nil {
 					errors = append(errors, err)
 					framework.Logf("Warning: Test failure (%v) will occur due to %v", len(errors)+1, err) // convenient error message for diagnosis... how many pods failed, and on what hosts?
 				} else {
@@ -57,6 +45,20 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 				}
 				framework.Failf("Failed due to %v errors polling %v pods", len(errors), len(config.EndpointPods))
 			}
+		}
+
+		// Try to hit all endpoints through a test container, retry 5 times,
+		// expect exactly one unique hostname. Each of these endpoints reports
+		// its own hostname.
+		/*
+			Release: v1.9, v1.18
+			Testname: Networking, intra pod http
+			Description: Create a hostexec pod that is capable of curl to netcat commands. Create a test Pod that will act as a webserver front end exposing ports 8080 for tcp and 8081 for udp. The netserver service proxies are created on specified number of nodes.
+			The kubectl exec on the webserver container MUST reach a http port on the each of service proxy endpoints in the cluster and the request MUST be successful. Container will execute curl command to reach the service port within specified max retry limit and MUST result in reporting unique hostnames.
+		*/
+		framework.ConformanceIt("should function for intra-pod communication: http [NodeConformance]", func() {
+			config := e2enetwork.NewCoreNetworkingTestConfig(f, false)
+			checkNodeConnectivity(config, "http", e2enetwork.EndpointHTTPPort)
 		})
 
 		/*
@@ -67,9 +69,7 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 		*/
 		framework.ConformanceIt("should function for intra-pod communication: udp [NodeConformance]", func() {
 			config := e2enetwork.NewCoreNetworkingTestConfig(f, false)
-			for _, endpointPod := range config.EndpointPods {
-				config.DialFromTestContainer("udp", endpointPod.Status.PodIP, e2enetwork.EndpointUDPPort, config.MaxTries, 0, sets.NewString(endpointPod.Name))
-			}
+			checkNodeConnectivity(config, "udp", e2enetwork.EndpointUDPPort)
 		})
 
 		/*
@@ -81,9 +81,7 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 		*/
 		framework.ConformanceIt("should function for node-pod communication: http [LinuxOnly] [NodeConformance]", func() {
 			config := e2enetwork.NewCoreNetworkingTestConfig(f, true)
-			for _, endpointPod := range config.EndpointPods {
-				config.DialFromNode("http", endpointPod.Status.PodIP, e2enetwork.EndpointHTTPPort, config.MaxTries, 0, sets.NewString(endpointPod.Name))
-			}
+			checkNodeConnectivity(config, "http", e2enetwork.EndpointHTTPPort)
 		})
 
 		/*
@@ -95,9 +93,7 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 		*/
 		framework.ConformanceIt("should function for node-pod communication: udp [LinuxOnly] [NodeConformance]", func() {
 			config := e2enetwork.NewCoreNetworkingTestConfig(f, true)
-			for _, endpointPod := range config.EndpointPods {
-				config.DialFromNode("udp", endpointPod.Status.PodIP, e2enetwork.EndpointUDPPort, config.MaxTries, 0, sets.NewString(endpointPod.Name))
-			}
+			checkNodeConnectivity(config, "udp", e2enetwork.EndpointUDPPort)
 		})
 	})
 })
