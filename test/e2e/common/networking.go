@@ -45,9 +45,9 @@ var _ = ginkgo.Describe("[sig-network] Networking", func() {
 			for _, endpointPod := range config.EndpointPods {
 				if err := config.DialFromTestContainer("http", endpointPod.Status.PodIP, e2enetwork.EndpointHTTPPort, config.MaxTries, 0, sets.NewString(endpointPod.Name)); err != nil {
 					errors = append(errors, err)
-					framework.Logf("Was able to reach %v on %v ", endpointPod.Status.PodIP, endpointPod.Status.HostIP)
-				} else {
 					framework.Logf("Warning: Test failure (%v) will occur due to %v", len(errors)+1, err) // convenient error message for diagnosis... how many pods failed, and on what hosts?
+				} else {
+					framework.Logf("Was able to reach %v on %v ", endpointPod.Status.PodIP, endpointPod.Status.HostIP)
 				}
 			}
 			if len(errors) > 0 {
