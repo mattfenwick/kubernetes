@@ -177,36 +177,6 @@ func CheckReady(c clientset.Interface, size int, timeout time.Duration) ([]v1.No
 	return nil, fmt.Errorf("timeout waiting %v for number of ready nodes to be %d", timeout, size)
 }
 
-// waitListSchedulableNodes is a wrapper around listing nodes supporting retries.
-func waitListSchedulableNodes(c clientset.Interface) (*v1.NodeList, error) {
-	var nodes *v1.NodeList
-	var err error
-	if wait.PollImmediate(poll, singleCallTimeout, func() (bool, error) {
-		nodes, err = c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{FieldSelector: fields.Set{
-			"spec.unschedulable": "false",
-		}.AsSelector().String()})
-		if err != nil {
-			if testutils.IsRetryableAPIError(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	}) != nil {
-		return nodes, err
-	}
-	return nodes, nil
-}
-
-// checkWaitListSchedulableNodes is a wrapper around listing nodes supporting retries.
-func checkWaitListSchedulableNodes(c clientset.Interface) (*v1.NodeList, error) {
-	nodes, err := waitListSchedulableNodes(c)
-	if err != nil {
-		return nil, fmt.Errorf("error: %s. Non-retryable failure or timed out while listing nodes for e2e cluster", err)
-	}
-	return nodes, nil
-}
-
 // CheckReadyForTests returns a method usable in polling methods which will check that the nodes are
 // in a testable state based on schedulability.
 func CheckReadyForTests(c clientset.Interface, nonblockingTaints string, allowedNotReadyNodes, largeClusterThreshold int) func() (bool, error) {
