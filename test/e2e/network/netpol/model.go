@@ -49,7 +49,7 @@ type Model struct {
 // The total number of pods is the number of namespaces x the number of pods per namespace.
 // The number of containers per pod is the number of ports x the number of protocols.
 // The *total* number of containers is namespaces x pods x ports x protocols.
-func NewModel(namespaces []string, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string) *Model {
+func NewModel(namespaces []string, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string, isWindows bool) *Model {
 	model := &Model{
 		NamespaceNames: namespaces,
 		PodNames:       podNames,
@@ -77,6 +77,7 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 				Namespace:  ns,
 				Name:       podName,
 				Containers: containers,
+				IsWindows:  isWindows,
 			})
 		}
 		model.Namespaces = append(model.Namespaces, &Namespace{Name: ns, Pods: pods})
@@ -158,6 +159,7 @@ type Pod struct {
 	Namespace  string
 	Name       string
 	Containers []*Container
+	IsWindows  bool
 }
 
 // FindContainer returns the container matching port and protocol; otherwise, an error
@@ -203,16 +205,20 @@ func (p *Pod) LabelSelector() map[string]string {
 // KubePod returns the kube pod
 func (p *Pod) KubePod() *v1.Pod {
 	zero := int64(0)
+	spec := v1.PodSpec{
+		TerminationGracePeriodSeconds: &zero,
+		Containers:                    p.ContainerSpecs(),
+	}
+	if p.IsWindows {
+		spec.NodeSelector = map[string]string{"kubernetes.io/os": "windows"}
+	}
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      p.Name,
 			Labels:    p.LabelSelector(),
 			Namespace: p.Namespace,
 		},
-		Spec: v1.PodSpec{
-			TerminationGracePeriodSeconds: &zero,
-			Containers:                    p.ContainerSpecs(),
-		},
+		Spec: spec,
 	}
 }
 
